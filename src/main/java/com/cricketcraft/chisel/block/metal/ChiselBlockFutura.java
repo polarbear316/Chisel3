@@ -12,7 +12,9 @@ import net.minecraft.util.BlockRenderLayer;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Random;
 
 public class ChiselBlockFutura extends BlockCarvableMetal implements IChiselBlock {
 
