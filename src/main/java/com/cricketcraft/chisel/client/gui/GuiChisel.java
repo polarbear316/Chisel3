@@ -101,11 +101,11 @@ public class GuiChisel extends GuiContainer {
 		GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
 		String line = I18n.format(net.minecraft.util.text.translation.I18n.translateToLocal("chisel.gui.title"));
-		fontRendererObj.drawSplitString(line, 32 - fontRendererObj.getStringWidth(line) / 2, 60, 40, 0x404040);
+			fontRendererObj.drawSplitString(line, 32 - fontRendererObj.getStringWidth(line) / 2, 60, 40, isDarkMode ? 0xFFFFFF : 0x404040);
 
-		if (showMode()) {
+		/*if (showMode()) {
 			fontRendererObj.drawString(line, fontRendererObj.getStringWidth(line) / 2 - 4, 20, 0x404040);
-		}
+		}*/
 	}
 
 	@Override

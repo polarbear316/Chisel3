@@ -64,7 +64,7 @@ public class ContainerChisel extends Container {
 
             if(index < 60) {
                 //From Chisel
-                if(!mergeItemStack(current, 62, 98, true))
+                if(!mergeItemStack(current, 62, 97, true))
                     return null;
             } else {
                 if(!mergeItemStack(current, 0, 0, false))

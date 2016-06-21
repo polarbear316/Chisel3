@@ -7,6 +7,8 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemTool;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.text.ITextComponent;
 
 public class InventoryChiselSelection implements IInventory {
@@ -14,7 +16,6 @@ public class InventoryChiselSelection implements IInventory {
     public static final int normalSlots = 60;
     public int activeVariations = 0;
     ItemStack[] inventory;
-    String name = "container.chisel";
 
     public InventoryChiselSelection(ItemStack c) {
         super();
@@ -79,7 +80,7 @@ public class InventoryChiselSelection implements IInventory {
 
     @Override
     public String getName() {
-        return name;
+        return "";
     }
 
     @Override
@@ -109,12 +110,21 @@ public class InventoryChiselSelection implements IInventory {
 
     @Override
     public void openInventory(EntityPlayer player) {
-
+        ItemStack chisel = player.getHeldItemMainhand();
+        NBTTagCompound tagCompound = chisel.getTagCompound();
+        NBTTagList tagList = tagCompound.getTagList("Item", 9);
+        inventory[0] = ItemStack.loadItemStackFromNBT(tagList.getCompoundTagAt(0));
     }
 
     @Override
     public void closeInventory(EntityPlayer player) {
-
+        ItemStack chisel = player.getHeldItemMainhand();
+        NBTTagList tags = new NBTTagList();
+        NBTTagCompound data = new NBTTagCompound();
+        data.setByte("Slot", (byte) 0);
+        inventory[0].writeToNBT(data);
+        tags.appendTag(data);
+        chisel.getTagCompound().setTag("Item", tags);
     }
 
     public void clearItems() {
@@ -129,7 +139,10 @@ public class InventoryChiselSelection implements IInventory {
             if(CarvingRegistry.getRecipeFromItemStack(stackInChiselSlot) != null) {
                 ChiselRecipe recipe = CarvingRegistry.getRecipeFromItemStack(stackInChiselSlot);
                 if(recipe != null) {
-                    ItemStack[] stacks = recipe.getChiselResults();
+                    ItemStack[] stacks = new ItemStack[recipe.getChiselResults().length];
+                    for(int c = 0; c < recipe.getChiselResults().length; c++) {
+                        stacks[c] = ItemStack.copyItemStack(recipe.getChiselResults()[c]);
+                    }
                     for (int c = 0; c < stacks.length; c++) {
                         inventory[c] = recipe.getChiselResults()[c];
                     }

@@ -104,7 +104,11 @@ public class ItemChisel extends Item implements IChiselItem {
 
     @Override
     public boolean canOpenGui(World world, EntityPlayer player, ItemStack chisel) {
-        return true;
+        if(player.getActiveHand() == EnumHand.MAIN_HAND) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     @Override
