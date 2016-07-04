@@ -4,18 +4,17 @@ import com.cricketcraft.chisel.api.CarvingRegistry;
 import com.cricketcraft.chisel.api.ICarvingRecipe;
 import com.cricketcraft.chisel.api.IChiselItem;
 import com.cricketcraft.chisel.api.IChiselMode;
-import com.cricketcraft.chisel.init.ChiselSound;
 import com.google.common.base.Strings;
+
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
-import net.minecraft.util.SoundCategory;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
@@ -39,9 +38,13 @@ public final class ChiselController {
 
     @SubscribeEvent
     public void onInteract(PlayerInteractEvent.LeftClickBlock event) {
-        EntityPlayer player = event.getEntityPlayer();
-        ItemStack held = player.getItemStackFromSlot(event.getHand() == EnumHand.OFF_HAND ? EntityEquipmentSlot.MAINHAND : EntityEquipmentSlot.OFFHAND);
+    	//Only process if world is "server", and if interaction from the main hand
+    	if(event.getWorld().isRemote || event.getHand() == EnumHand.OFF_HAND) return;
 
+        EntityPlayer player = event.getEntityPlayer();
+        ItemStack held = player.getHeldItemMainhand();
+
+        //Only continue if held item was the chisel
         if (held == null || !(held.getItem() instanceof IChiselItem)) {
             return;
         }
@@ -54,29 +57,36 @@ public final class ChiselController {
         int meta = block.getMetaFromState(state);
 
         ItemStack stack = new ItemStack(block, 1, meta);
-        getMode(player).chisel(player, event.getWorld(), event.getPos(), event.getFace(), CarvingRegistry.getRecipeFromItemStack(stack));
+        getMode(held).chisel(player, event.getWorld(), event.getPos(), event.getFace(), CarvingRegistry.getRecipeFromItemStack(stack));
         held.damageItem(1, player);
     }
 
     /**
      * @param recipe
-     * @param stack The block that is being chiseled in the world.
+     * @param originalBlockStack The block that is being chiseled in the world.
      */
-    public static boolean chiselBlockInWorld(ICarvingRecipe recipe, ItemStack stack, BlockPos pos, World world, boolean isShifting) {
+    @SuppressWarnings("deprecation")
+    public static boolean chiselBlockInWorld(ICarvingRecipe recipe, ItemStack originalBlockStack, BlockPos pos, World world, boolean isShifting) {
+    	IBlockState targetState = world.getBlockState(pos);
+    	ItemStack targetStack = new ItemStack(targetState.getBlock(), 1, targetState.getBlock().getMetaFromState(targetState));
+
+    	//Only continue if recipe is valid, and original and target block are same type 
+    	if( recipe == null || recipe.getChiselResults() == null || !originalBlockStack.isItemEqual(targetStack) ){
+    		return false;
+    	}
+
         int var = 0;
-        for(int c = 0; c < recipe.getChiselResults().length; c++) {
-            if(recipe.getChiselResults()[c].isItemEqual(stack)) {
-                var = c;
-            }
-        }
         ItemStack out;
-        if(isShifting) {
-            if(var - 1 < 0)
-                var = recipe.getChiselResults().length;
-            out = recipe.getChiselResults()[var - 1];
-        } else {
-            out = recipe.getChiselResults()[var + 1 > recipe.getChiselResults().length - 1 ? 0 : var + 1];
+        ItemStack[] results = recipe.getChiselResults();
+
+        for(int i=0; i<results.length; i++){
+        	if(results[i].isItemEqual(originalBlockStack)){
+        		var = isShifting ? (i-1<0 ? results.length-1 : i-1) : (i+1)%results.length;
+        		break;
+        	}
         }
+
+        out = results[var];
 
         Block block = Block.getBlockFromItem(out.getItem());
         IBlockState state = block.getStateFromMeta(out.getItemDamage());
@@ -90,20 +100,63 @@ public final class ChiselController {
         return world.setBlockState(pos, state);
     }
 
-    public static IChiselMode getMode(EntityPlayer player) {
-        if(player != null) {
-            if(Strings.isNullOrEmpty(player.getEntityData().getString(MODE_KEY))) {
-                player.getEntityData().setString(MODE_KEY, ChiselMode.SINGLE.name());
-            }
+    /**
+     * Get the mode of the chisel
+     * @param chisel
+     * @return IChiselMode
+     */
+    public static IChiselMode getMode(ItemStack chisel) {
+    	if(chisel == null) return ChiselMode.SINGLE;
 
-            return Enum.valueOf(ChiselMode.class, player.getEntityData().getString(MODE_KEY));
+    	if(chisel.getTagCompound() == null){
+    		chisel.setTagCompound(new NBTTagCompound());
+    	}
 
-        } else
-            return ChiselMode.SINGLE;
+    	if(Strings.isNullOrEmpty(chisel.getTagCompound().getString(MODE_KEY))) {
+            chisel.getTagCompound().setString(MODE_KEY, ChiselMode.SINGLE.name());
+        }
+
+        return Enum.valueOf(ChiselMode.class, chisel.getTagCompound().getString(MODE_KEY));
     }
 
-    public static void setMode(EntityPlayer player, String name) {
-        player.getEntityData().setString(MODE_KEY, name);
+    /**
+     * Set the mode of the chisel
+     * @param chisel
+     * @param name The name of the chisel mode
+     */
+    public static void setMode(ItemStack chisel, String name) {
+        chisel.getTagCompound().setString(MODE_KEY, name);
+    }
+
+    /**
+     * Get the ItemStack that was saved from SlotChiselInput
+     * @param chisel
+     * @return ItemStack
+     */
+    public static ItemStack loadChiselInput(ItemStack chisel) {
+    	NBTTagCompound tagCompound = chisel.getTagCompound();
+    	//Create new NBT if one wasn't already created
+    	if(tagCompound == null){
+    		tagCompound = new NBTTagCompound();
+    		chisel.setTagCompound(tagCompound);
+    	}
+    	NBTTagList tagList = tagCompound.getTagList("Item", 10);
+    	return ItemStack.loadItemStackFromNBT(tagList.getCompoundTagAt(0));
+    }
+
+	/**
+     * Save the ItemStack that is in SlotChiselInput
+     * @param chisel
+     * @param chiselInput
+     */
+    public static void saveChiselInput(ItemStack chisel, ItemStack chiselInput) {
+    	NBTTagList tags = new NBTTagList();
+    	NBTTagCompound data = new NBTTagCompound();
+    	if(chiselInput != null){
+    		chiselInput.writeToNBT(data);
+    	}
+    	tags.appendTag(data);
+    	chisel.getTagCompound().setTag("Item", tags);
     }
 
     public enum ChiselMode implements IChiselMode {

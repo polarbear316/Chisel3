@@ -180,6 +180,8 @@ public class CarvingRegistry {
     }
 
     public static ChiselRecipe getRecipeFromItemStack(ItemStack stack) {
+    	if(stack == null) return null;
+
         ItemStack stack1 = new ItemStack(stack.getItem(), 1, stack.getItemDamage());
         for (int c = 0; c < recipes.size(); c++) {
             ItemStack[] results = recipes.get(c).getChiselResults();

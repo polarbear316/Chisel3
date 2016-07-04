@@ -2,20 +2,25 @@ package com.cricketcraft.chisel.inventory;
 
 import com.cricketcraft.chisel.api.CarvingRegistry;
 import com.cricketcraft.chisel.api.ChiselRecipe;
+import com.cricketcraft.chisel.item.chisel.ChiselController;
 import com.cricketcraft.chisel.item.chisel.ItemChisel;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemTool;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraftforge.fml.common.FMLLog;
 
 public class InventoryChiselSelection implements IInventory {
-    ItemStack chisel = null;
+    public ItemStack chisel = null;
+
     public static final int normalSlots = 60;
+    public static final int inputSlotIndex = 60;
+
     public int activeVariations = 0;
     ItemStack[] inventory;
+    public ContainerChisel container;
 
     public InventoryChiselSelection(ItemStack c) {
         super();
@@ -28,10 +33,7 @@ public class InventoryChiselSelection implements IInventory {
      * @param slot
      */
     public void onInventoryUpdate(int slot) {
-        if(slot == 60) {
-            //Just to make sure its cleared
-            updateItems(getStackInSlot(60));
-        }
+
     }
 
     @Override
@@ -110,58 +112,55 @@ public class InventoryChiselSelection implements IInventory {
 
     @Override
     public void openInventory(EntityPlayer player) {
-        ItemStack chisel = player.getHeldItemMainhand();
-        NBTTagCompound tagCompound = chisel.getTagCompound();
-        NBTTagList tagList = tagCompound.getTagList("Item", 9);
-        inventory[0] = ItemStack.loadItemStackFromNBT(tagList.getCompoundTagAt(0));
+    	/* Get any saved input items */
+    	inventory[inputSlotIndex] = ChiselController.loadChiselInput(chisel);
+    	updateItems();
     }
 
     @Override
     public void closeInventory(EntityPlayer player) {
-        ItemStack chisel = player.getHeldItemMainhand();
-        NBTTagList tags = new NBTTagList();
-        NBTTagCompound data = new NBTTagCompound();
-        data.setByte("Slot", (byte) 0);
-        inventory[0].writeToNBT(data);
-        tags.appendTag(data);
-        chisel.getTagCompound().setTag("Item", tags);
+    	/* Save any input items */
+    	ChiselController.saveChiselInput(chisel,inventory[inputSlotIndex]);
     }
 
     public void clearItems() {
-        activeVariations = 0;
-        for (int c = 0; c < normalSlots; c++) {
+        for (int c = 0; c < activeVariations; c++) {
             inventory[c] = null;
         }
+        activeVariations = 0;
     }
 
-    public void updateItems(ItemStack stackInChiselSlot) {
-        if(stackInChiselSlot != null) {
-            if(CarvingRegistry.getRecipeFromItemStack(stackInChiselSlot) != null) {
-                ChiselRecipe recipe = CarvingRegistry.getRecipeFromItemStack(stackInChiselSlot);
-                if(recipe != null) {
-                    ItemStack[] stacks = new ItemStack[recipe.getChiselResults().length];
-                    for(int c = 0; c < recipe.getChiselResults().length; c++) {
-                        stacks[c] = ItemStack.copyItemStack(recipe.getChiselResults()[c]);
-                    }
-                    for (int c = 0; c < stacks.length; c++) {
-                        inventory[c] = recipe.getChiselResults()[c];
-                    }
-                }
-            }
-        } else {
-            for(int c = 0; c < 60; c++) {
-                inventory[c] = null;
-            }
-        }
+    public void updateItems() {
+    	ItemStack chiselInput = inventory[inputSlotIndex];
+    	clearItems();
+
+		if (chiselInput == null) {
+			container.onChiselSlotChanged();
+			return;
+		}
+
+		ChiselRecipe recipe = CarvingRegistry.getRecipeFromItemStack(chiselInput);
+
+		//If no associated recipe or there are no variations nothing to do so return
+		if(recipe == null || recipe.getChiselResults().length == 0) return;
+
+		ItemStack[] variations = recipe.getChiselResults();
+		for(int i=0; i<variations.length; i++){
+			inventory[i] = variations[i];
+		}
+		activeVariations = variations.length;
+
+		container.onChiselSlotChanged();
     }
 
     @Override
     public boolean isItemValidForSlot(int slot, ItemStack stack) {
-        if (stack.getItem() instanceof ItemTool) {
+    	//ItemTool, ItemChisel are not valid inputs, and any slot other than input slot do not receive items 
+    	if (stack != null && (stack.getItem() instanceof ItemTool || stack.getItem() instanceof ItemChisel || slot != inputSlotIndex)) {
             return false;
         }
 
-        return !(stack != null && (stack.getItem() instanceof ItemChisel)) && slot == normalSlots;
+        return true;
     }
 
     @Override

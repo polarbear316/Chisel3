@@ -1,5 +1,6 @@
 package com.cricketcraft.chisel.inventory;
 
+import com.cricketcraft.chisel.api.CarvingRegistry;
 import com.cricketcraft.chisel.inventory.slots.SlotChiselInput;
 import com.cricketcraft.chisel.inventory.slots.SlotChiselSelection;
 import net.minecraft.entity.player.EntityPlayer;
@@ -9,9 +10,12 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 
 public class ContainerChisel extends Container {
-
-    public InventoryChiselSelection inventory;
-    public ItemStack chisel;
+	public InventoryChiselSelection inventory;
+	public InventoryPlayer playerInventory;
+	int chiselSlot;
+	public ItemStack chisel;
+	public boolean finished = false;
+	public CarvingRegistry carving;
 
     /**
      * Slot IDs:
@@ -20,19 +24,34 @@ public class ContainerChisel extends Container {
      * 61-87: Player Inventory
      * 88-96: Hotbar
      */
-    public ContainerChisel(InventoryPlayer player, InventoryChiselSelection chiselSelection) {
+    public ContainerChisel(InventoryPlayer inventoryPlayer, InventoryChiselSelection chiselSelection) {
+        inventory = chiselSelection;
+        inventory.container = this;
+        playerInventory = inventoryPlayer;
+        chiselSlot = playerInventory.currentItem;
+
         for(int c = 0; c < 60; c++) {
             addSlotToContainer(new SlotChiselSelection(chiselSelection, c, 62 + ((c % 10) * 18), 8 + ((c / 10) * 18)));
         }
 
         addSlotToContainer(new SlotChiselInput(chiselSelection, 60, 24, 24));
 
-        bindPlayerInventory(player);
+        bindPlayerInventory(playerInventory);
 
-        chisel = player.getCurrentItem();
+        inventory.openInventory(playerInventory.player);
+        //getHeldItemMainhand() to get currently held item
+        chisel = playerInventory.player.getHeldItemMainhand();
     }
 
-
+	/**
+	 * Listen for container close event, call InventoryChiselSelection#closeInventory to
+	 * save any items in chisel input
+	 */
+	@Override
+	public void onContainerClosed(EntityPlayer playerIn) {
+	    super.onContainerClosed(playerIn);
+	    inventory.closeInventory(playerIn);
+	}
 
     private void bindPlayerInventory(InventoryPlayer inventoryPlayer) {
         int top = 120;
@@ -55,33 +74,65 @@ public class ContainerChisel extends Container {
 
     @Override
     public ItemStack transferStackInSlot(EntityPlayer player, int index) {
-        ItemStack previous = null;
-        Slot slot = inventorySlots.get(index);
+        ItemStack originalStack = null;
+        Slot clickedSlot = inventorySlots.get(index);
+        if(clickedSlot != null && clickedSlot.getHasStack()) {
+            ItemStack transferStack = clickedSlot.getStack();
+            originalStack = transferStack.copy();
 
-        if(slot != null && slot.getHasStack()) {
-            ItemStack current = slot.getStack();
-            previous = current.copy();
+            if(index < 61) {
+            	//Player clicked a chisel output slot, transferStack = chiseled output stack
 
-            if(index < 60) {
-                //From Chisel
-                if(!mergeItemStack(current, 62, 97, true))
-                    return null;
+            	//Chisel items from chisel input to chiseled output(transferStack) 
+            	player.inventory.setItemStack(transferStack.copy());
+            	clickedSlot.onPickupFromSlot(player, transferStack);
+            	transferStack = player.inventory.getItemStack();
+            	player.inventory.setItemStack(null);
+
+            	//Merge chiseled stack to the player's inventory
+            	if(!mergeItemStack(transferStack, 62, 97, true))
+            		return null;
             } else {
-                if(!mergeItemStack(current, 0, 0, false))
+            	//Player clicked slot from their inventory, transferStack = chisel input stack
+            	//Merge transferStack to the chisel input slot
+            	if(!mergeItemStack(transferStack, 60, 61, false))
                     return null;
             }
 
-            if(current.stackSize == 0)
-                slot.putStack(null);
-            else
-                slot.onSlotChanged();
+            //trigger slot change event, triggers any Slot#onCrafting event overrides if needed 
+            clickedSlot.onSlotChange(transferStack, originalStack);
 
-            if(current.stackSize == previous.stackSize)
+            if(transferStack.stackSize == 0)
+                clickedSlot.putStack(null);
+            else
+                clickedSlot.onSlotChanged();
+
+            if(transferStack.stackSize == originalStack.stackSize)
                 return null;
 
-            slot.onPickupFromSlot(player, current);
+            if (index >= InventoryChiselSelection.normalSlots) {
+            	clickedSlot.onPickupFromSlot(player, transferStack);
+            }
+
+            if (transferStack.stackSize == 0) {
+            	clickedSlot.putStack(null);
+            	return null;
+            }
         }
 
-        return previous;
+        return originalStack;
     }
+
+	public void onChiselSlotChanged() {
+		ItemStack stack = playerInventory.mainInventory[chiselSlot];
+		if (stack == null || !stack.isItemEqual(chisel))
+			finished = true;
+
+		if (finished) {
+			finished = false;
+			return;
+		}
+
+		playerInventory.mainInventory[chiselSlot] = chisel;
+	}
 }

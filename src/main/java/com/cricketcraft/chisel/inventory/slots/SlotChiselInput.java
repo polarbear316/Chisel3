@@ -1,6 +1,7 @@
 package com.cricketcraft.chisel.inventory.slots;
 
 import com.cricketcraft.chisel.inventory.InventoryChiselSelection;
+
 import net.minecraft.inventory.Slot;
 
 public class SlotChiselInput extends Slot {
@@ -17,6 +18,6 @@ public class SlotChiselInput extends Slot {
     @Override
     public void onSlotChanged() {
         super.onSlotChanged();
-        selection.updateItems(selection.getStackInSlot(id));
+        selection.updateItems();
     }
 }

@@ -1,14 +1,17 @@
 package com.cricketcraft.chisel.client.gui;
 
-import com.cricketcraft.chisel.Chisel;
+import org.lwjgl.opengl.GL11;
+
 import com.cricketcraft.chisel.api.IChiselItem;
 import com.cricketcraft.chisel.api.IChiselMode;
 import com.cricketcraft.chisel.inventory.ContainerChisel;
 import com.cricketcraft.chisel.inventory.InventoryChiselSelection;
 import com.cricketcraft.chisel.inventory.slots.SlotChiselInput;
 import com.cricketcraft.chisel.item.chisel.ChiselController;
+import com.cricketcraft.chisel.network.PacketHandler;
+import com.cricketcraft.chisel.network.message.MessageChiselMode;
+
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.audio.SoundHandler;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.GlStateManager;
@@ -19,8 +22,6 @@ import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.FMLLog;
-import org.lwjgl.opengl.GL11;
 
 public class GuiChisel extends GuiContainer {
 
@@ -84,7 +85,7 @@ public class GuiChisel extends GuiContainer {
 		if (currentMode != null) {
 			(buttonList.get(0)).displayString = I18n.format("gui.mode." + currentMode.name().toLowerCase() != null ? currentMode.name().toLowerCase() : "default");
 		} else {
-			currentMode = ChiselController.getMode(player);
+			currentMode = ChiselController.getMode(container.chisel);
 			setButtonText();
 		}
 	}
@@ -125,8 +126,10 @@ public class GuiChisel extends GuiContainer {
 		if(button.id == 1) {
 			button.playPressSound(Minecraft.getMinecraft().getSoundHandler());
 			if(container.chisel.getItem() instanceof IChiselItem) {
-				currentMode = ChiselController.getMode(player).next();
-				ChiselController.setMode(player, currentMode.name());
+				//Set mode to the next one in the list
+				currentMode = currentMode.next();
+				//Send change to "server"
+				PacketHandler.INSTANCE.sendToServer(new MessageChiselMode(currentMode));
 			}
 			setButtonText();
 		} else if(button.id == 0) {

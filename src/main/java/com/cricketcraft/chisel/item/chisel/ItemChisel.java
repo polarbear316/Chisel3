@@ -1,5 +1,7 @@
 package com.cricketcraft.chisel.item.chisel;
 
+import java.util.List;
+
 import com.cricketcraft.chisel.Chisel;
 import com.cricketcraft.chisel.api.IChiselItem;
 import com.cricketcraft.chisel.api.IChiselMode;
@@ -7,6 +9,7 @@ import com.cricketcraft.chisel.config.Configurations;
 import com.cricketcraft.chisel.init.ChiselTabs;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.attributes.AttributeModifier;
 import net.minecraft.entity.player.EntityPlayer;
@@ -19,9 +22,6 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
-
-import java.util.List;
-import java.util.UUID;
 
 public class ItemChisel extends Item implements IChiselItem {
     public enum ChiselType {
@@ -117,7 +117,7 @@ public class ItemChisel extends Item implements IChiselItem {
     }
 
     @Override
-    public IChiselMode getMode(EntityPlayer player, String name) {
-        return ChiselController.getMode(player);
+    public IChiselMode getMode(ItemStack chisel, String name) {
+        return ChiselController.getMode(chisel);
     }
 }

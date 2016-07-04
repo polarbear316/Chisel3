@@ -37,5 +37,5 @@ public interface IChiselItem {
 	 * @param name
      * @return
      */
-	IChiselMode getMode(EntityPlayer player, String name);
+	IChiselMode getMode(ItemStack chisel, String name);
 }
